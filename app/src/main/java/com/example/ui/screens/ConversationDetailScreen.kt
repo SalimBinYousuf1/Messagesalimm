@@ -11,6 +11,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
@@ -57,11 +59,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +77,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -82,30 +88,30 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.data.model.ConversationItem
 import com.example.data.model.MessageItem
 import com.example.data.telephony.SmsSegmentation
 import com.example.ui.MainViewModel
+import com.example.ui.components.AppleContactActionSheet
+import com.example.ui.components.AppleMessageActionSheet
 import com.example.ui.components.ReactionBar
 import com.example.ui.components.SegmentCounterPill
 import com.example.ui.components.WaveformVisualizer
+import com.example.ui.components.appleHoldOrClick
 import com.example.ui.components.getBubbleShape
 import com.example.ui.components.liquidGlassSurface
+import android.content.Intent
 import com.example.ui.theme.Body
-import com.example.ui.theme.Callout
 import com.example.ui.theme.Caption
 import com.example.ui.theme.FrostAccentBlue
-import com.example.ui.theme.FrostDarkBubbleReceived
-import com.example.ui.theme.FrostDarkCanvas
 import com.example.ui.theme.FrostDestructiveRed
-import com.example.ui.theme.FrostLightBubbleReceived
-import com.example.ui.theme.FrostWhiteCanvas
-import com.example.ui.theme.Headline
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationDetailScreen(
     viewModel: MainViewModel,
@@ -132,8 +138,16 @@ fun ConversationDetailScreen(
     var selectedMessageForReaction by remember { mutableStateOf<MessageItem?>(null) }
     var showScheduleDialog by remember { mutableStateOf(false) }
     var previewImageUri by remember { mutableStateOf<String?>(null) }
+    var showContactSheet by remember { mutableStateOf(false) }
 
-    // Modern Android Photo Picker (zero broad storage permissions needed!)
+    val contactSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val messageSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val bgCanvas = if (isDark) Color(0xFF000000) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDark) Color(0xFFFFFFFF) else Color(0xFF000000)
+    val textSecondary = Color(0xFF8E8E93)
+    val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -142,123 +156,153 @@ fun ConversationDetailScreen(
         }
     }
 
-    // Live GSM-7 vs UCS-2 character segmentation
     val segmentResult = remember(inputText) {
         SmsSegmentation.calculate(inputText)
     }
 
-    // Voice recording states
     val isRecording by viewModel.voiceRecorder.isRecording.collectAsStateWithLifecycle()
     val recordDurationMs by viewModel.voiceRecorder.recordingDurationMs.collectAsStateWithLifecycle()
     val recordAmps by viewModel.voiceRecorder.amplitudes.collectAsStateWithLifecycle()
 
-    // Audio player playback states
     val currentPlayingUri by viewModel.audioPlayer.currentPlayingUri.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.audioPlayer.playbackProgress.collectAsStateWithLifecycle()
     val isPlaying by viewModel.audioPlayer.isPlaying.collectAsStateWithLifecycle()
 
-    // Auto-scroll to latest message on updates
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }
 
+    val initials = remember(name, address) {
+        val title = name ?: address
+        if (title.contains(" ")) {
+            title.split(" ").take(2).mapNotNull { it.firstOrNull()?.uppercase() }.joinToString("")
+        } else {
+            title.take(2).uppercase()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) FrostDarkCanvas else FrostWhiteCanvas)
+            .background(bgCanvas)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            // Glass Floating Header Bar
-            Surface(
+            // Apple Top Bar: Back Chevron, Centered Avatar & Contact Name
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .liquidGlassSurface(RoundedCornerShape(22.dp), elevation = 4.dp),
-                color = Color.Transparent
+                    .background(bgCanvas)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                    // Back Chevron (< Messages)
+                    TextButton(
+                        onClick = { viewModel.navigateBack() },
+                        contentPadding = PaddingValues(horizontal = 6.dp)
                     ) {
-                        IconButton(
-                            onClick = { viewModel.navigateBack() },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = if (isDark) Color.White else Color.Black
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = FrostAccentBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Messages",
+                            color = FrostAccentBlue,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
 
-                        Spacer(modifier = Modifier.width(6.dp))
-
+                    // Centered Contact Monogram & Label (Clickable to show Contact Action Sheet)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showContactSheet = true }
+                            .padding(vertical = 2.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)),
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = if (isDark) listOf(Color(0xFF3A3A3C), Color(0xFF2C2C2E))
+                                        else listOf(Color(0xFF007AFF), Color(0xFF5856D6))
+                                    )
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = (name ?: address).take(1).uppercase(),
-                                style = Headline.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                                color = if (isDark) Color.White else Color.Black
+                                text = initials,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
 
-                        Column {
-                            Text(
-                                text = name ?: address,
-                                style = Headline.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                                color = if (isDark) Color.White else Color.Black,
-                                maxLines = 1
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = address,
-                                    style = Caption,
-                                    color = if (isDark) Color(0x99FFFFFF) else Color(0x99000000)
-                                )
-                                if (activeSims.size > 1) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "SIM ${selectedSimSlot + 1}",
-                                        style = Caption.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                                        color = FrostAccentBlue
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = name ?: address,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textPrimary,
+                            maxLines = 1
+                        )
+
+                        Text(
+                            text = "Text Message • SMS",
+                            fontSize = 11.sp,
+                            color = textSecondary
+                        )
                     }
 
-                    // Top More Actions Menu
-                    Box {
+                    // Direct Call Button & More Menu
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
-                            onClick = { showMenu = true },
+                            onClick = {
+                                try {
+                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${address.trim()}"))
+                                    context.startActivity(dialIntent)
+                                } catch (_: Exception) {}
+                            },
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More",
-                                tint = if (isDark) Color.White else Color.Black
+                                imageVector = Icons.Default.Call,
+                                contentDescription = "Call Contact",
+                                tint = FrostAccentBlue,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
+
+                        Box {
+                            IconButton(
+                                onClick = { showMenu = true },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More",
+                                    tint = FrostAccentBlue,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
 
                         DropdownMenu(
                             expanded = showMenu,
@@ -312,17 +356,20 @@ fun ConversationDetailScreen(
                 }
             }
 
-            // Messages Conversation Thread
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
+        }
+
+            // Message Thread
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(messages, key = { it.id }) { msg ->
-                    MessageBubbleRow(
+                    AppleMessageBubble(
                         message = msg,
                         isLastMessage = (msg.id == messages.lastOrNull()?.id),
                         currentPlayingUri = currentPlayingUri,
@@ -342,7 +389,7 @@ fun ConversationDetailScreen(
                 }
             }
 
-            // Glass Reaction Picker Popup when long pressed
+            // Apple Reaction Pill Popup
             AnimatedVisibility(
                 visible = selectedMessageForReaction != null,
                 enter = fadeIn(),
@@ -352,21 +399,22 @@ fun ConversationDetailScreen(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 4.dp)
-                            .liquidGlassSurface(RoundedCornerShape(20.dp), elevation = 8.dp),
-                        color = Color.Transparent
+                            .padding(horizontal = 32.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(24.dp)),
+                        color = if (isDark) Color(0xFF1C1C1E) else Color(0xFFF2F2F7),
+                        shadowElevation = 6.dp
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             listOf("❤️", "👍", "👎", "😂", "‼️", "❓").forEach { emoji ->
                                 Text(
                                     text = emoji,
-                                    fontSize = 26.sp,
+                                    fontSize = 24.sp,
                                     modifier = Modifier
                                         .clip(CircleShape)
                                         .clickable {
@@ -381,60 +429,60 @@ fun ConversationDetailScreen(
                 }
             }
 
-            // Glass Floating Compose Bar
+            // Apple iOS Compose Bar
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .navigationBarsPadding()
-                    .imePadding()
-                    .liquidGlassSurface(RoundedCornerShape(26.dp), elevation = 10.dp),
-                color = Color.Transparent
+                    .imePadding(),
+                color = if (isDark) Color(0xFF121212) else Color(0xFFF7F7F8),
+                shadowElevation = 4.dp
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
-                    // Live Segment Counter Pill (GSM-7 vs UCS-2)
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    // Segment Counter Indicator (only when text exists)
                     if (inputText.isNotEmpty()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 6.dp, start = 8.dp, end = 8.dp),
+                                .padding(bottom = 4.dp, start = 44.dp, end = 44.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            SegmentCounterPill(
-                                totalChars = segmentResult.totalChars,
-                                remainingInSegment = segmentResult.remainingInSegment,
-                                segmentCount = segmentResult.segmentCount,
-                                isUcs2 = segmentResult.isUcs2
+                            Text(
+                                text = if (segmentResult.isUcs2) "${segmentResult.remainingInSegment} left • ${segmentResult.segmentCount} UCS-2"
+                                else "${segmentResult.remainingInSegment} left (${segmentResult.segmentCount})",
+                                fontSize = 11.sp,
+                                color = textSecondary
                             )
                             if (activeSims.size > 1) {
                                 Text(
                                     text = "SIM ${selectedSimSlot + 1}",
-                                    style = Caption.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
                                     color = FrostAccentBlue
                                 )
                             }
                         }
                     }
 
-                    // Main input bar row
+                    // Input Bar Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Attachment Button (+) with popup menu
+                        // Circular "+" Attachment Button
                         Box {
                             IconButton(
                                 onClick = { showAttachMenu = true },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(if (isDark) Color(0x26FFFFFF) else Color(0x14000000))
+                                    .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA))
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = "Attach",
-                                    tint = if (isDark) Color.White else Color.Black,
+                                    tint = if (isDark) Color.White else Color(0xFF636366),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -464,16 +512,16 @@ fun ConversationDetailScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
-                        // Text Field or Live Voice Recording Waveform
+                        // Text Capsule Field or Voice Recording Waveform
                         if (isRecording) {
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isDark) Color(0x33FF3B30) else Color(0x1AFF3B30))
+                                    .height(38.dp)
+                                    .clip(RoundedCornerShape(19.dp))
+                                    .background(Color(0xFFFF3B30).copy(alpha = 0.12f))
                                     .padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -486,9 +534,11 @@ fun ConversationDetailScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "${recordDurationMs / 1000}s",
-                                    style = Caption.copy(fontWeight = FontWeight.Bold, color = FrostDestructiveRed)
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FrostDestructiveRed
                                 )
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
                                 WaveformVisualizer(
                                     amplitudes = recordAmps,
                                     playbackProgress = 1f,
@@ -500,16 +550,17 @@ fun ConversationDetailScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isDark) Color(0x1FFFFFFF) else Color(0x0F000000))
-                                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                                    .clip(RoundedCornerShape(19.dp))
+                                    .background(if (isDark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF))
+                                    .border(0.5.dp, if (isDark) Color(0xFF2C2C2E) else Color(0xFFD1D1D6), RoundedCornerShape(19.dp))
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 if (inputText.isEmpty()) {
                                     Text(
-                                        text = "Text message",
-                                        style = Body.copy(fontSize = 16.sp),
-                                        color = if (isDark) Color(0x66FFFFFF) else Color(0x66000000)
+                                        text = "Text Message",
+                                        fontSize = 16.sp,
+                                        color = textSecondary
                                     )
                                 }
                                 BasicTextField(
@@ -517,7 +568,7 @@ fun ConversationDetailScreen(
                                     onValueChange = { inputText = it },
                                     textStyle = Body.copy(
                                         fontSize = 16.sp,
-                                        color = if (isDark) Color.White else Color.Black
+                                        color = textPrimary
                                     ),
                                     cursorBrush = SolidColor(FrostAccentBlue),
                                     modifier = Modifier.fillMaxWidth()
@@ -527,7 +578,7 @@ fun ConversationDetailScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Send or Mic Button
+                        // Apple Circular Send / Mic Button
                         if (inputText.isNotBlank()) {
                             IconButton(
                                 onClick = {
@@ -536,7 +587,7 @@ fun ConversationDetailScreen(
                                     viewModel.sendMessage(threadId, address, text)
                                 },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
                                     .background(FrostAccentBlue)
                             ) {
@@ -544,37 +595,37 @@ fun ConversationDetailScreen(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = "Send",
                                     tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(17.dp)
                                 )
                             }
                         } else if (isRecording) {
                             IconButton(
                                 onClick = { viewModel.sendVoiceNote(threadId, address) },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
                                     .background(FrostAccentBlue)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Stop,
-                                    contentDescription = "Stop and send",
+                                    contentDescription = "Stop",
                                     tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(17.dp)
                                 )
                             }
                         } else {
                             IconButton(
                                 onClick = { viewModel.voiceRecorder.startRecording(coroutineScope) },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(if (isDark) Color(0x26FFFFFF) else Color(0x14000000))
+                                    .background(if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA))
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Mic,
                                     contentDescription = "Record voice note",
-                                    tint = if (isDark) Color.White else Color.Black,
-                                    modifier = Modifier.size(20.dp)
+                                    tint = if (isDark) Color.White else Color(0xFF636366),
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -601,7 +652,7 @@ fun ConversationDetailScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.92f))
+                        .background(Color.Black.copy(alpha = 0.94f))
                         .clickable { previewImageUri = null },
                     contentAlignment = Alignment.Center
                 ) {
@@ -627,11 +678,62 @@ fun ConversationDetailScreen(
                 }
             }
         }
+
+        // Apple Message Bubble Long-Press Action Sheet
+        selectedMessageForReaction?.let { msg ->
+            AppleMessageActionSheet(
+                message = msg,
+                sheetState = messageSheetState,
+                onDismiss = { selectedMessageForReaction = null },
+                onSelectEmoji = { emoji ->
+                    viewModel.toggleReaction(msg.id, threadId, emoji)
+                    selectedMessageForReaction = null
+                },
+                onDeleteMessage = {
+                    msg.id.toLongOrNull()?.let { id ->
+                        viewModel.deleteSingleMessage(id)
+                    }
+                    selectedMessageForReaction = null
+                },
+                onScheduleFollowUp = {
+                    selectedMessageForReaction = null
+                    showScheduleDialog = true
+                }
+            )
+        }
+
+        // Apple Contact Action Sheet (triggered by tapping or holding contact header)
+        if (showContactSheet) {
+            val contactItem = remember(threadId, address, name) {
+                ConversationItem(
+                    threadId = threadId,
+                    address = address,
+                    contactName = name,
+                    snippet = messages.lastOrNull()?.body ?: "",
+                    timestamp = messages.lastOrNull()?.timestamp ?: System.currentTimeMillis()
+                )
+            }
+            AppleContactActionSheet(
+                item = contactItem,
+                sheetState = contactSheetState,
+                onDismiss = { showContactSheet = false },
+                onOpenChat = { showContactSheet = false },
+                onTogglePin = { viewModel.togglePin(threadId, false) },
+                onToggleArchive = { viewModel.toggleArchive(threadId, false) },
+                onToggleMute = { viewModel.toggleMute(threadId, false) },
+                onToggleRead = { viewModel.markThreadRead(threadId) },
+                onBlockContact = { viewModel.blockContact(address, name) },
+                onDeleteConversation = {
+                    viewModel.deleteConversation(threadId)
+                    showContactSheet = false
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun MessageBubbleRow(
+fun AppleMessageBubble(
     message: MessageItem,
     isLastMessage: Boolean,
     currentPlayingUri: String?,
@@ -649,7 +751,7 @@ fun MessageBubbleRow(
     val bubbleBg = if (isOutgoing) {
         FrostAccentBlue
     } else {
-        if (isDark) FrostDarkBubbleReceived else FrostLightBubbleReceived
+        if (isDark) Color(0xFF262629) else Color(0xFFE9E9EB)
     }
 
     val textColor = if (isOutgoing) {
@@ -664,11 +766,14 @@ fun MessageBubbleRow(
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 290.dp)
+                .widthIn(max = 280.dp)
                 .clip(bubbleShape)
                 .background(bubbleBg)
-                .clickable { onLongPress() }
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .appleHoldOrClick(
+                    onHold = onLongPress,
+                    onClick = {}
+                )
+                .padding(horizontal = 14.dp, vertical = 9.dp)
         ) {
             when {
                 // Voice Message
@@ -707,8 +812,8 @@ fun MessageBubbleRow(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${message.audioDurationMs / 1000}s voice note",
-                                style = Caption.copy(fontSize = 11.sp),
-                                color = if (isOutgoing) Color(0xCCFFFFFF) else (if (isDark) Color(0x99FFFFFF) else Color(0x99000000))
+                                fontSize = 11.sp,
+                                color = if (isOutgoing) Color(0xCCFFFFFF) else Color(0x998E8E93)
                             )
                         }
                     }
@@ -735,7 +840,7 @@ fun MessageBubbleRow(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = message.body,
-                                style = Body.copy(fontSize = 15.sp),
+                                fontSize = 15.sp,
                                 color = textColor
                             )
                         }
@@ -746,14 +851,15 @@ fun MessageBubbleRow(
                 else -> {
                     Text(
                         text = message.body,
-                        style = Body.copy(fontSize = 17.sp),
+                        fontSize = 17.sp,
+                        lineHeight = 22.sp,
                         color = textColor
                     )
                 }
             }
         }
 
-        // Reactions Pill Bar
+        // Apple Reaction Pill Bar
         if (message.reactions.isNotEmpty()) {
             ReactionBar(
                 reactions = message.reactions,
@@ -761,23 +867,24 @@ fun MessageBubbleRow(
             )
         }
 
-        // Delivery / Read status shown under latest sent message only
+        // Apple Status Label: "Delivered" under latest sent message only
         if (isOutgoing && isLastMessage) {
             val statusLabel = when (message.status) {
                 MessageItem.STATUS_SENDING -> "Sending..."
                 MessageItem.STATUS_SENT -> "Sent"
                 MessageItem.STATUS_DELIVERED -> "Delivered"
                 MessageItem.STATUS_FAILED -> "Not Delivered • Tap to retry"
-                else -> "Sent"
+                else -> "Delivered"
             }
-            val statusColor = if (message.status == MessageItem.STATUS_FAILED) FrostDestructiveRed else (if (isDark) Color(0x80FFFFFF) else Color(0x80000000))
+            val statusColor = if (message.status == MessageItem.STATUS_FAILED) FrostDestructiveRed else Color(0xFF8E8E93)
 
             Text(
                 text = statusLabel,
-                style = Caption.copy(fontSize = 11.sp, fontWeight = FontWeight.Normal),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Normal,
                 color = statusColor,
                 modifier = Modifier
-                    .padding(top = 2.dp, end = 4.dp)
+                    .padding(top = 3.dp, end = 4.dp)
                     .clickable(enabled = message.status == MessageItem.STATUS_FAILED) {
                         onRetrySend()
                     }
@@ -807,7 +914,7 @@ fun ScheduleMessageDialog(
         title = { Text("Schedule Message", fontWeight = FontWeight.SemiBold) },
         text = {
             Column {
-                Text("Select when this message should be sent via telephony:", style = Caption)
+                Text("Select date and time to send via telephony:", fontSize = 13.sp, color = Color(0xFF8E8E93))
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
@@ -842,7 +949,7 @@ fun ScheduleMessageDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("Message text:", style = Caption)
+                Text("Message text:", fontSize = 13.sp, color = Color(0xFF8E8E93))
                 Spacer(modifier = Modifier.height(4.dp))
                 BasicTextField(
                     value = body,
@@ -859,14 +966,16 @@ fun ScheduleMessageDialog(
         confirmButton = {
             Button(
                 onClick = { onSchedule(calendar.timeInMillis, body) },
-                enabled = body.isNotBlank()
+                enabled = body.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = FrostAccentBlue),
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text("Schedule")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = FrostAccentBlue)
             }
         }
     )

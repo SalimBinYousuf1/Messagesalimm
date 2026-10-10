@@ -20,4 +20,7 @@ interface ReactionDao {
 
     @Query("DELETE FROM message_reactions WHERE threadId = :threadId")
     suspend fun clearReactionsForThread(threadId: String)
+
+    @Query("DELETE FROM message_reactions WHERE messageId = :messageId")
+    suspend fun clearReactionsForMessage(messageId: String)
 }

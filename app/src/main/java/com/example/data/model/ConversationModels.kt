@@ -39,7 +39,7 @@ data class ConversationItem(
     val contactName: String?,
     val snippet: String,
     val timestamp: Long,
-    val unreadCount: Int,
+    val unreadCount: Int = 0,
     val isPinned: Boolean = false,
     val isMuted: Boolean = false,
     val isArchived: Boolean = false,

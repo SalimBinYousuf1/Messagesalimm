@@ -40,8 +40,17 @@ interface LocalMessageDao {
     @Query("UPDATE local_messages SET isRead = 1 WHERE threadId = :threadId")
     suspend fun markThreadRead(threadId: String)
 
+    @Query("UPDATE local_messages SET isRead = :isRead WHERE threadId = :threadId")
+    suspend fun setThreadReadStatus(threadId: String, isRead: Boolean)
+
+    @Query("UPDATE local_messages SET isRead = 1")
+    suspend fun markAllRead()
+
     @Query("DELETE FROM local_messages WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM local_messages WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
 
     @Query("DELETE FROM local_messages WHERE threadId = :threadId")
     suspend fun deleteThread(threadId: String)

@@ -24,18 +24,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,14 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.MainViewModel
-import com.example.ui.components.liquidGlassSurface
-import com.example.ui.theme.Body
-import com.example.ui.theme.Callout
-import com.example.ui.theme.Caption
 import com.example.ui.theme.FrostAccentBlue
-import com.example.ui.theme.FrostDarkCanvas
-import com.example.ui.theme.FrostWhiteCanvas
-import com.example.ui.theme.Headline
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,84 +59,87 @@ fun SearchScreen(
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
     val isDark = isSystemInDarkTheme()
 
+    val bgCanvas = if (isDark) Color(0xFF000000) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDark) Color(0xFFFFFFFF) else Color(0xFF000000)
+    val textSecondary = Color(0xFF8E8E93)
+    val searchBarBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFE9E9EB)
+    val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) FrostDarkCanvas else FrostWhiteCanvas)
+            .background(bgCanvas)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            // Glass Floating Search Bar
-            Surface(
+            // Apple Top Search Bar Row
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .liquidGlassSurface(RoundedCornerShape(22.dp), elevation = 4.dp),
-                color = Color.Transparent
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Capsule Search Field
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .weight(1f)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(searchBarBg)
+                        .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { viewModel.navigateBack() },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = if (isDark) Color.White else Color.Black
-                        )
-                    }
-
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = textSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(if (isDark) Color(0x26FFFFFF) else Color(0x14000000))
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0x99FFFFFF) else Color(0x99000000),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { viewModel.search(it) },
-                            textStyle = Body.copy(
-                                fontSize = 16.sp,
-                                color = if (isDark) Color.White else Color.Black
-                            ),
-                            cursorBrush = SolidColor(FrostAccentBlue),
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(
-                                onClick = { viewModel.search("") },
-                                modifier = Modifier.size(20.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = if (isDark) Color(0x99FFFFFF) else Color(0x99000000),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.search(it) },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontSize = 16.sp,
+                            color = textPrimary
+                        ),
+                        cursorBrush = SolidColor(FrostAccentBlue),
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.search("") },
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = textSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                TextButton(
+                    onClick = { viewModel.navigateBack() },
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = FrostAccentBlue,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
             }
+
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
 
             // Results List
             if (searchQuery.isBlank()) {
@@ -157,9 +150,9 @@ fun SearchScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Search messages, contacts, and phone numbers",
-                        style = Callout,
-                        color = if (isDark) Color(0x80FFFFFF) else Color(0x80000000)
+                        text = "Search messages and contacts",
+                        fontSize = 15.sp,
+                        color = textSecondary
                     )
                 }
             } else if (searchResults.isEmpty()) {
@@ -171,48 +164,56 @@ fun SearchScreen(
                 ) {
                     Text(
                         text = "No results found for \"$searchQuery\"",
-                        style = Headline.copy(fontSize = 17.sp),
-                        color = if (isDark) Color.White else Color.Black
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textPrimary
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(searchResults, key = { it.id }) { msg ->
-                        val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(msg.timestamp))
+                        val dateStr = SimpleDateFormat("M/d/yy", Locale.getDefault()).format(Date(msg.timestamp))
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isDark) Color(0x1AFFFFFF) else Color(0x0A000000))
                                 .clickable {
                                     viewModel.openConversation(msg.threadId, msg.address, msg.senderName)
                                 }
-                                .padding(14.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = msg.senderName ?: msg.address,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = textPrimary
+                                    )
+                                    Text(
+                                        text = dateStr,
+                                        fontSize = 13.sp,
+                                        color = textSecondary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = msg.senderName ?: msg.address,
-                                    style = Headline.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                                    color = if (isDark) Color.White else Color.Black
-                                )
-                                Text(
-                                    text = dateStr,
-                                    style = Caption,
-                                    color = if (isDark) Color(0x80FFFFFF) else Color(0x80000000)
+                                    text = msg.body,
+                                    fontSize = 15.sp,
+                                    color = textSecondary,
+                                    maxLines = 2
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = msg.body,
-                                style = Body.copy(fontSize = 15.sp),
-                                color = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 16.dp),
+                                thickness = 0.5.dp,
+                                color = dividerColor
                             )
                         }
                     }

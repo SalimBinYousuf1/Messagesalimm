@@ -277,6 +277,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteMultipleConversations(threadIds: Set<String>) {
+        viewModelScope.launch {
+            threadIds.forEach { id ->
+                repository.deleteThread(id)
+            }
+        }
+    }
+
+    fun markThreadRead(threadId: String) {
+        viewModelScope.launch {
+            repository.markThreadAsRead(threadId)
+        }
+    }
+
+    fun markThreadUnread(threadId: String) {
+        viewModelScope.launch {
+            repository.markThreadAsUnread(threadId)
+        }
+    }
+
+    fun markAllThreadsRead() {
+        viewModelScope.launch {
+            repository.markAllThreadsAsRead()
+        }
+    }
+
+    fun deleteSingleMessage(messageId: Long) {
+        viewModelScope.launch {
+            repository.deleteSingleMessage(messageId)
+        }
+    }
+
+    fun clearAppCache(onFinished: (Long) -> Unit) {
+        viewModelScope.launch {
+            val bytes = repository.clearAppCache()
+            onFinished(bytes)
+        }
+    }
+
     fun blockContact(address: String, name: String?) {
         viewModelScope.launch {
             repository.blockedNumbersManager.blockNumber(address, name)

@@ -23,14 +23,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -43,16 +42,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.entity.ScheduledMessageEntity
 import com.example.ui.MainViewModel
-import com.example.ui.components.liquidGlassSurface
-import com.example.ui.theme.Body
-import com.example.ui.theme.Callout
-import com.example.ui.theme.Caption
-import com.example.ui.theme.FrostDarkCanvas
+import com.example.ui.theme.FrostAccentBlue
 import com.example.ui.theme.FrostDestructiveRed
 import com.example.ui.theme.FrostSuccessGreen
-import com.example.ui.theme.FrostWhiteCanvas
-import com.example.ui.theme.Headline
-import com.example.ui.theme.Title
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -67,48 +59,62 @@ fun ScheduledQueueScreen(
     val scheduledMessages by viewModel.scheduledMessages.collectAsStateWithLifecycle()
     val isDark = isSystemInDarkTheme()
 
+    val bgCanvas = if (isDark) Color(0xFF000000) else Color(0xFFF2F2F7)
+    val cardBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDark) Color(0xFFFFFFFF) else Color(0xFF000000)
+    val textSecondary = Color(0xFF8E8E93)
+    val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) FrostDarkCanvas else FrostWhiteCanvas)
+            .background(bgCanvas)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            // Glass Header
-            Surface(
+            // Apple Top Bar Header
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .liquidGlassSurface(RoundedCornerShape(22.dp), elevation = 4.dp),
-                color = Color.Transparent
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                TextButton(
+                    onClick = { viewModel.navigateBack() },
+                    contentPadding = PaddingValues(horizontal = 6.dp)
                 ) {
-                    IconButton(
-                        onClick = { viewModel.navigateBack() },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = if (isDark) Color.White else Color.Black
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = FrostAccentBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Scheduled Messages",
-                        style = Title.copy(fontSize = 20.sp),
-                        color = if (isDark) Color.White else Color.Black
+                        text = "Settings",
+                        color = FrostAccentBlue,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Normal
                     )
                 }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = "Scheduled",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = textPrimary,
+                    modifier = Modifier.padding(end = 48.dp)
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
             }
+
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
 
             if (scheduledMessages.isEmpty()) {
                 Box(
@@ -117,32 +123,49 @@ fun ScheduledQueueScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0x66FFFFFF) else Color(0x66000000),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(bottom = 60.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFFFF9500).copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9500),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Text(
                             text = "No Scheduled Messages",
-                            style = Headline,
-                            color = if (isDark) Color.White else Color.Black
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimary
                         )
+
                         Spacer(modifier = Modifier.height(4.dp))
+
                         Text(
-                            text = "Schedule messages in any conversation using the clock button.",
-                            style = Callout,
-                            color = if (isDark) Color(0x80FFFFFF) else Color(0x80000000)
+                            text = "You can schedule messages from any conversation by tapping the clock or + icon.",
+                            fontSize = 15.sp,
+                            color = textSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(scheduledMessages, key = { it.id }) { item ->
                         val dateFormatted = SimpleDateFormat("EEE, MMM d • h:mm a", Locale.getDefault()).format(Date(item.scheduledTimestamp))
@@ -150,14 +173,14 @@ fun ScheduledQueueScreen(
                             ScheduledMessageEntity.STATUS_PENDING -> Color(0xFFFF9500)
                             ScheduledMessageEntity.STATUS_SENT -> FrostSuccessGreen
                             ScheduledMessageEntity.STATUS_FAILED -> FrostDestructiveRed
-                            else -> Color.Gray
+                            else -> textSecondary
                         }
 
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isDark) Color(0x1FFFFFFF) else Color(0x0A000000))
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(cardBg)
                                 .padding(14.dp)
                         ) {
                             Row(
@@ -167,12 +190,14 @@ fun ScheduledQueueScreen(
                             ) {
                                 Text(
                                     text = item.recipientName ?: item.recipientAddress,
-                                    style = Headline.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                                    color = if (isDark) Color.White else Color.Black
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = textPrimary
                                 )
                                 Text(
                                     text = item.status,
-                                    style = Caption.copy(fontWeight = FontWeight.Bold),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
                                     color = statusColor
                                 )
                             }
@@ -180,21 +205,21 @@ fun ScheduledQueueScreen(
                             Spacer(modifier = Modifier.height(2.dp))
 
                             Text(
-                                text = "Scheduled: $dateFormatted",
-                                style = Caption,
-                                color = if (isDark) Color(0x99FFFFFF) else Color(0x99000000)
+                                text = "Sends $dateFormatted",
+                                fontSize = 13.sp,
+                                color = textSecondary
                             )
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
                                 text = item.body,
-                                style = Body.copy(fontSize = 15.sp),
-                                color = if (isDark) Color.White else Color.Black
+                                fontSize = 15.sp,
+                                color = textPrimary
                             )
 
                             if (item.status == ScheduledMessageEntity.STATUS_PENDING) {
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.End
@@ -202,10 +227,11 @@ fun ScheduledQueueScreen(
                                     Button(
                                         onClick = { viewModel.cancelScheduled(item.id) },
                                         colors = ButtonDefaults.buttonColors(containerColor = FrostDestructiveRed),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(30.dp)
                                     ) {
-                                        Text("Cancel Send", fontSize = 12.sp)
+                                        Text("Cancel", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }

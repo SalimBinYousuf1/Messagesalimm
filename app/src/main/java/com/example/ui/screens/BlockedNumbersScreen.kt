@@ -27,9 +27,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,16 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.MainViewModel
-import com.example.ui.components.liquidGlassSurface
-import com.example.ui.theme.Body
-import com.example.ui.theme.Callout
-import com.example.ui.theme.Caption
 import com.example.ui.theme.FrostAccentBlue
-import com.example.ui.theme.FrostDarkCanvas
 import com.example.ui.theme.FrostDestructiveRed
-import com.example.ui.theme.FrostWhiteCanvas
-import com.example.ui.theme.Headline
-import com.example.ui.theme.Title
 
 @Composable
 fun BlockedNumbersScreen(
@@ -70,92 +61,110 @@ fun BlockedNumbersScreen(
 
     var inputNumber by remember { mutableStateOf("") }
 
+    val bgCanvas = if (isDark) Color(0xFF000000) else Color(0xFFF2F2F7)
+    val cardBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDark) Color(0xFFFFFFFF) else Color(0xFF000000)
+    val textSecondary = Color(0xFF8E8E93)
+    val dividerColor = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) FrostDarkCanvas else FrostWhiteCanvas)
+            .background(bgCanvas)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            // Glass Header
-            Surface(
+            // Apple Top Bar Header
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .liquidGlassSurface(RoundedCornerShape(22.dp), elevation = 4.dp),
-                color = Color.Transparent
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                TextButton(
+                    onClick = { viewModel.navigateBack() },
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = FrostAccentBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Settings",
+                        color = FrostAccentBlue,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = "Blocked",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = textPrimary,
+                    modifier = Modifier.padding(end = 48.dp)
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
+
+            // Blocked Numbers Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Add Number to Block Card
+                Text(
+                    text = "BLOCK A PHONE NUMBER",
+                    fontSize = 13.sp,
+                    color = textSecondary,
+                    modifier = Modifier.padding(start = 14.dp, bottom = 6.dp)
+                )
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { viewModel.navigateBack() },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = if (isDark) Color.White else Color.Black
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Blocked Numbers",
-                        style = Title.copy(fontSize = 20.sp),
-                        color = if (isDark) Color.White else Color.Black
-                    )
-                }
-            }
-
-            // Add Number to Block Card
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "BLOCK A PHONE NUMBER",
-                    style = Caption.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                    color = if (isDark) Color(0x66FFFFFF) else Color(0x66000000)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(cardBg)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) Color(0x26FFFFFF) else Color(0x14000000))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         if (inputNumber.isEmpty()) {
                             Text(
                                 text = "Enter phone number",
-                                style = Body.copy(fontSize = 15.sp),
-                                color = if (isDark) Color(0x66FFFFFF) else Color(0x66000000)
+                                fontSize = 16.sp,
+                                color = textSecondary
                             )
                         }
                         BasicTextField(
                             value = inputNumber,
                             onValueChange = { inputNumber = it },
-                            textStyle = Body.copy(
-                                fontSize = 15.sp,
-                                color = if (isDark) Color.White else Color.Black
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                fontSize = 16.sp,
+                                color = textPrimary
                             ),
                             cursorBrush = SolidColor(FrostAccentBlue),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+
                     Spacer(modifier = Modifier.width(8.dp))
+
                     Button(
                         onClick = {
                             if (inputNumber.isNotBlank()) {
@@ -164,75 +173,83 @@ fun BlockedNumbersScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = FrostDestructiveRed),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = inputNumber.isNotBlank()
+                        shape = RoundedCornerShape(10.dp),
+                        enabled = inputNumber.isNotBlank(),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        modifier = Modifier.height(30.dp)
                     ) {
-                        Text("Block", fontSize = 13.sp)
+                        Text("Block", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-            // Blocked Numbers List
-            if (blockedList.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Block,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0x66FFFFFF) else Color(0x66000000),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
+                // Blocked Numbers Group Card
+                Text(
+                    text = "CURRENTLY BLOCKED",
+                    fontSize = 13.sp,
+                    color = textSecondary,
+                    modifier = Modifier.padding(start = 14.dp, bottom = 6.dp)
+                )
+
+                if (blockedList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cardBg)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = "No Blocked Numbers",
-                            style = Headline,
-                            color = if (isDark) Color.White else Color.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Incoming calls and messages from blocked numbers are rejected at telephony level.",
-                            style = Callout,
-                            color = if (isDark) Color(0x80FFFFFF) else Color(0x80000000)
+                            text = "No blocked numbers",
+                            fontSize = 15.sp,
+                            color = textSecondary
                         )
                     }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(blockedList, key = { it.id }) { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color(0x1FFFFFFF) else Color(0x0A000000))
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = item.contactName ?: item.rawNumber,
-                                    style = Headline.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                                    color = if (isDark) Color.White else Color.Black
-                                )
-                                Text(
-                                    text = item.normalizedNumber,
-                                    style = Caption,
-                                    color = if (isDark) Color(0x80FFFFFF) else Color(0x80000000)
-                                )
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cardBg)
+                    ) {
+                        blockedList.forEachIndexed { index, item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = item.contactName ?: item.rawNumber,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = textPrimary
+                                    )
+                                    Text(
+                                        text = item.normalizedNumber,
+                                        fontSize = 12.sp,
+                                        color = textSecondary
+                                    )
+                                }
+
+                                TextButton(
+                                    onClick = { viewModel.unblockContact(item.rawNumber) },
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text("Unblock", color = FrostAccentBlue, fontSize = 15.sp)
+                                }
                             }
-                            TextButton(onClick = { viewModel.unblockContact(item.rawNumber) }) {
-                                Text("Unblock", color = FrostAccentBlue, fontWeight = FontWeight.SemiBold)
+
+                            if (index < blockedList.size - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 14.dp),
+                                    thickness = 0.5.dp,
+                                    color = dividerColor
+                                )
                             }
                         }
                     }

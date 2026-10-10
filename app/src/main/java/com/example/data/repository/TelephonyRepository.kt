@@ -181,102 +181,17 @@ class TelephonyRepository(
     }
 
     /**
-     * Seed initial demo conversations if local database is completely empty
-     * so that the app is immediately reviewable on emulators or fresh installs.
+     * Purges any legacy demo data and synchronizes genuine device messages.
+     * No hardcoded seed messages are inserted.
      */
-    suspend fun seedInitialDataIfEmpty() = withContext(Dispatchers.IO) {
-        val count = database.localMessageDao().getCount()
-        if (count > 0) return@withContext
-
-        // If real SMS messages exist on device, sync those instead of seeding!
+    suspend fun cleanLegacySeedDataAndSync() = withContext(Dispatchers.IO) {
+        // Remove any previous seed demo threads
+        val legacySeedAddresses = listOf("+15550192834", "+15550821945", "+447911123456", "22000")
+        for (addr in legacySeedAddresses) {
+            database.localMessageDao().deleteThread(addr)
+        }
+        // Sync real messages from device Telephony provider
         syncSystemTelephonySms()
-        if (database.localMessageDao().getCount() > 0) return@withContext
-
-        val now = System.currentTimeMillis()
-        val oneMin = 60 * 1000L
-        val oneHour = 60 * oneMin
-        val oneDay = 24 * oneHour
-
-        val seedMessages = listOf(
-            LocalMessageEntity(
-                threadId = "+15550192834",
-                address = "+15550192834",
-                senderName = "Salim Bhat",
-                body = "Welcome to Salim Messages! Complete offline-first SMS & MMS handler with Apple Liquid Glass Frost aesthetic and live GSM-7/UCS-2 segmentation.",
-                timestamp = now - 2 * oneHour,
-                isOutgoing = false,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = true
-            ),
-            LocalMessageEntity(
-                threadId = "+15550192834",
-                address = "+15550192834",
-                senderName = "Me",
-                body = "Audio waveforms decode actual microphone amplitudes, and consecutive bubbles flatten shared inner corners.",
-                timestamp = now - 1 * oneHour - 45 * oneMin,
-                isOutgoing = true,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = true
-            ),
-            LocalMessageEntity(
-                threadId = "+15550192834",
-                address = "+15550192834",
-                senderName = "Salim Bhat",
-                body = "Voice note: audio message decoded from real microphone samples.",
-                timestamp = now - 1 * oneHour,
-                isOutgoing = false,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = false,
-                messageType = LocalMessageEntity.TYPE_VOICE,
-                audioAmplitudes = "15,22,48,85,92,67,42,88,95,74,51,32,18,45,82,60,35,15",
-                audioDurationMs = 4200
-            ),
-            LocalMessageEntity(
-                threadId = "+15550821945",
-                address = "+15550821945",
-                senderName = "Sarah Jenkins",
-                body = "Hey! Let's meet at 4:00 PM for coffee.",
-                timestamp = now - 3 * oneHour,
-                isOutgoing = false,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = true
-            ),
-            LocalMessageEntity(
-                threadId = "+15550821945",
-                address = "+15550821945",
-                senderName = "Me",
-                body = "Sounds good! See you there.",
-                timestamp = now - 2 * oneHour - 30 * oneMin,
-                isOutgoing = true,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = true
-            ),
-            LocalMessageEntity(
-                threadId = "+447911123456",
-                address = "+447911123456",
-                senderName = "Elena Rostova",
-                body = "Привет! Проверь многоязычную сегментацию сообщений 🚀",
-                timestamp = now - 1 * oneDay,
-                isOutgoing = false,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = true
-            ),
-            LocalMessageEntity(
-                threadId = "22000",
-                address = "22000",
-                senderName = "Google Security",
-                body = "G-849201 is your Google verification code. Do not share it with anyone.",
-                timestamp = now - 2 * oneDay,
-                isOutgoing = false,
-                status = LocalMessageEntity.STATUS_DELIVERED,
-                isRead = true
-            )
-        )
-
-        database.localMessageDao().insertAll(seedMessages)
-        database.conversationMetaDao().insertOrUpdate(
-            ConversationMetaEntity(threadId = "+15550192834", isPinned = true)
-        )
     }
 
     /**
@@ -646,6 +561,35 @@ class TelephonyRepository(
         }
     }
 
+    suspend fun markThreadAsRead(threadId: String) = withContext(Dispatchers.IO) {
+        database.localMessageDao().setThreadReadStatus(threadId, true)
+    }
+
+    suspend fun markThreadAsUnread(threadId: String) = withContext(Dispatchers.IO) {
+        database.localMessageDao().setThreadReadStatus(threadId, false)
+    }
+
+    suspend fun markAllThreadsAsRead() = withContext(Dispatchers.IO) {
+        database.localMessageDao().markAllRead()
+    }
+
+    suspend fun deleteSingleMessage(messageId: Long) = withContext(Dispatchers.IO) {
+        database.localMessageDao().deleteById(messageId)
+        database.reactionDao().clearReactionsForMessage(messageId.toString())
+    }
+
+    suspend fun clearAppCache(): Long = withContext(Dispatchers.IO) {
+        var bytesFreed = 0L
+        try {
+            val cacheFiles = context.cacheDir.listFiles()
+            cacheFiles?.forEach { file ->
+                bytesFreed += file.length()
+                file.deleteRecursively()
+            }
+        } catch (_: Exception) {}
+        bytesFreed
+    }
+
     suspend fun saveDraft(threadId: String, draftText: String?) = withContext(Dispatchers.IO) {
         val meta = database.conversationMetaDao().getMeta(threadId)
         val timestamp = if (draftText.isNullOrBlank()) 0L else System.currentTimeMillis()
@@ -679,21 +623,7 @@ class TelephonyRepository(
         ) == PackageManager.PERMISSION_GRANTED
 
         if (!hasContactsPerm) {
-            val samples = listOf(
-                ContactEntry("1", "Salim Bhat", "+15550192834"),
-                ContactEntry("2", "Sarah Jenkins", "+15550821945"),
-                ContactEntry("3", "Elena Rostova", "+447911123456"),
-                ContactEntry("4", "Alexander Hayes", "+15550348712"),
-                ContactEntry("5", "Maya Lin", "+15550993412"),
-                ContactEntry("6", "Omar Al-Mansoor", "+971501234567")
-            )
-            return@withContext if (query.isBlank()) {
-                samples
-            } else {
-                samples.filter {
-                    it.name.contains(query, ignoreCase = true) || it.number.contains(query)
-                }
-            }
+            return@withContext emptyList()
         }
 
         val result = mutableListOf<ContactEntry>()

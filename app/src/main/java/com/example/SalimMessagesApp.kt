@@ -22,9 +22,9 @@ class SalimMessagesApp : Application() {
         // Setup notification channel
         NotificationHelper.createChannels(this)
 
-        // Seed initial conversations asynchronously if database is brand new
+        // Clean legacy demo seeds and synchronize real device messages
         CoroutineScope(Dispatchers.IO).launch {
-            repository.seedInitialDataIfEmpty()
+            repository.cleanLegacySeedDataAndSync()
         }
     }
 }
