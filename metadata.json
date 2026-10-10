@@ -1,0 +1,6 @@
+{
+  "name": "Salim Messages",
+  "description": "Production-grade offline-first SMS/MMS messaging app with Apple Liquid Glass Frost design system, GSM-7/UCS-2 segmentation, voice notes, and local Room state.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
